@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Virtual Instrument Pro</title>
+<style>
+body {
+  background:#0f0f0f;
+  color:white;
+  font-family:sans-serif;
+  text-align:center;
+}
+.key {
+  width:50px;
+  height:180px;
+  margin:4px;
+  background:#eee;
+  color:black;
+  display:inline-flex;
+  justify-content:center;
+  align-items:end;
+  font-size:14px;
+  border-radius:6px;
+  cursor:pointer;
+}
+.key:active { background:orange; }
+.controls button {
+  margin:5px;
+  padding:8px 14px;
+  font-size:14px;
+}
+</style>
+</head>
+
+<body>
+<h1>🎶 Virtual Instrument Pro</h1>
+<p>Bấm chuột / phím A S D F G H J K</p>
+
+<div id="keyboard"></div>
+
+<div class="controls">
+  <button onclick="startRecord()">● Record</button>
+  <button onclick="stopRecord()">■ Stop</button>
+  <button onclick="playRecord()">▶ Play</button>
+</div>
+
+<script>
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const ctx = new AudioCtx();
+
+// ===== CẤU HÌNH DÂY (ĐỔI THÀNH ĐÀN TRANH ĐƯỢC) =====
+const strings = [
+  { key:"A", freq:196 },
+  { key:"S", freq:220 },
+  { key:"D", freq:247 },
+  { key:"F", freq:262 },
+  { key:"G", freq:294 },
+  { key:"H", freq:330 },
+  { key:"J", freq:349 },
+  { key:"K", freq:392 }
+];
+
+const keyboard = document.getElementById("keyboard");
+
+// ===== KARPLUS-STRONG (DÂY GẢY THẬT) =====
+function pluck(freq) {
+  const bufferSize = ctx.sampleRate / freq;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 3000;
+
+  source.connect(filter);
+  filter.connect(ctx.destination);
+
+  source.loop = true;
+  source.start();
+  source.stop(ctx.currentTime + 1.8);
+}
+
+// ===== GIAO DIỆN =====
+strings.forEach(s => {
+  const div = document.createElement("div");
+  div.className = "key";
+  div.innerText = s.key;
+  div.onclick = () => trigger(s.freq);
+  keyboard.appendChild(div);
+});
+
+// ===== RECORD =====
+let recording = [];
+let startTime = 0;
+
+function trigger(freq) {
+  pluck(freq);
+  if (recording) {
+    recording.push({
+      freq,
+      time: ctx.currentTime - startTime
+    });
+  }
+}
+
+function startRecord() {
+  recording = [];
+  startTime = ctx.currentTime;
+}
+
+function stopRecord() {
+  startTime = 0;
+}
+
+function playRecord() {
+  recording.forEach(n => {
+    setTimeout(() => pluck(n.freq), n.time * 1000);
+  });
+}
+
+// ===== BÀN PHÍM =====
+document.addEventListener("keydown", e => {
+  const s = strings.find(x => x.key === e.key.toUpperCase());
+  if (s) trigger(s.freq);
+});
+</script>
+</body>
+</html>
